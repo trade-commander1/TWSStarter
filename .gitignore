@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments (each self-ignores too, but be explicit)
+.venv/
+.venv-linux/
+.venv*/
+
+# Build outputs and PyInstaller intermediates
+/dist/
+/build/TWSStarter/
+/build/installer_output/
+/installer_output/
+*.manifest
+
+# PyInstaller-generated spec in project root (the maintained one is build/TWSStarter.spec)
+/TWSStarter.spec

@@ -1,0 +1,29 @@
+[project]
+name = "twsstarter"
+version = "0.1.0"
+description = "IBKR TWS/Gateway launcher with encrypted credential management"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "trade-commander1", email = "3072570+trade-commander1@users.noreply.github.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "cryptography>=49.0.0",
+    "pyautogui>=0.9.54",
+    "pyqt6>=6.11.0",
+    "pywinauto>=0.6.9",
+]
+
+[project.scripts]
+twsstarter = "twsstarter.main:main"
+
+[build-system]
+requires = ["uv_build>=0.11.19,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.21.0",
+]
