@@ -110,11 +110,17 @@ History:
   1.10 Build 0 — Per-connection Autostart switch (default on) on each card. A
                 one-time check ~15 s after launch starts every autostart
                 connection (in its default mode) that is not already running.
+  1.11 Build 0 — Autostart is now a watchdog: while the switch is on, the
+                connection is (re)started whenever it is not running (so it comes
+                back after being closed). New Settings option "Check interval"
+                (seconds, default 30) controls the check cadence and the delay
+                before the first check. Also fixes Settings save dropping the
+                disclaimer-accepted flag. Help updated in all 10 languages.
 """
 from __future__ import annotations
 
 APP_NAME: str = "TWSStarter"
-VERSION: str = "1.10"  # X.Y — feature version
+VERSION: str = "1.11"  # X.Y — feature version
 BUILD: int = 0         # Z   — build number
 
 

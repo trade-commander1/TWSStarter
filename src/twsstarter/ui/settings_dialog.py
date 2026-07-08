@@ -1,7 +1,7 @@
 from __future__ import annotations
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QLineEdit, QPushButton, QFrame, QFileDialog,
+    QLabel, QLineEdit, QPushButton, QFrame, QFileDialog, QSpinBox,
 )
 from PyQt6.QtCore import Qt
 from twsstarter.i18n import tr
@@ -47,6 +47,21 @@ class SettingsDialog(QDialog):
         form.addRow(self._lbl(tr('lbl_gw_dir')), self._path_row(self._gw_edit))
 
         root.addLayout(form)
+
+        # ── Autostart ─────────────────────────────────────────────
+        root.addWidget(self._section(tr('section_autostart')))
+        form2 = QFormLayout()
+        form2.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        form2.setSpacing(10)
+        form2.setContentsMargins(0, 0, 0, 0)
+        self._interval_spin = QSpinBox()
+        self._interval_spin.setRange(5, 3600)
+        self._interval_spin.setSuffix(" s")
+        self._interval_spin.setFixedWidth(100)
+        self._interval_spin.setToolTip(tr('tip_check_interval'))
+        form2.addRow(self._lbl(tr('lbl_check_interval')), self._interval_spin)
+        root.addLayout(form2)
+
         root.addStretch()
 
         sep2 = QFrame()
@@ -101,17 +116,22 @@ class SettingsDialog(QDialog):
             target.setText(path.replace("/", "\\"))
 
     def _on_ok(self) -> None:
+        # Preserve fields not editable here (e.g. disclaimer acceptance).
         self._result = AppSettings(
             default_tws_path=self._tws_edit.text().strip() or r"C:\jts",
             default_gateway_path=self._gw_edit.text().strip(),
             language=self._current_lang,
+            disclaimer_accepted=self._disclaimer_accepted,
+            check_interval=self._interval_spin.value(),
         )
         self.accept()
 
     def _populate(self, s: AppSettings) -> None:
         self._current_lang = s.language
+        self._disclaimer_accepted = s.disclaimer_accepted
         self._tws_edit.setText(s.default_tws_path)
         self._gw_edit.setText(s.default_gateway_path)
+        self._interval_spin.setValue(s.check_interval)
 
     def get_settings(self) -> AppSettings | None:
         return self._result

@@ -73,6 +73,10 @@ class AppSettings:
     language: str = "auto"
     # Whether the one-time first-run disclaimer has been accepted.
     disclaimer_accepted: bool = False
+    # Autostart check interval in seconds: how often MainWindow (re)starts
+    # autostart connections that are not running, and the delay before the first
+    # check after launch.
+    check_interval: int = 30
 
     def to_dict(self) -> dict:
         return {
@@ -80,6 +84,7 @@ class AppSettings:
             "default_gateway_path": self.default_gateway_path,
             "language": self.language,
             "disclaimer_accepted": self.disclaimer_accepted,
+            "check_interval": self.check_interval,
         }
 
     @classmethod
@@ -89,4 +94,5 @@ class AppSettings:
             default_gateway_path=d.get("default_gateway_path", ""),
             language=d.get("language", "auto"),
             disclaimer_accepted=d.get("disclaimer_accepted", False),
+            check_interval=max(5, int(d.get("check_interval", 30))),
         )

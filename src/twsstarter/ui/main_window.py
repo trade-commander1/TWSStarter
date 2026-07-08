@@ -36,9 +36,6 @@ class _AutofillBridge(QObject):
 class MainWindow(QMainWindow):
     _MONITOR_INTERVAL = 10.0          # seconds between runtime checks
     _LOG_CLEANUP_MS = 6 * 3600 * 1000  # purge old logs every 6 hours
-    # Grace period after launch before autostart kicks in — long enough for the
-    # monitor to detect already-running instances so they are not double-started.
-    _AUTOSTART_DELAY_MS = 15 * 1000
 
     def __init__(self):
         super().__init__()
@@ -81,8 +78,12 @@ class MainWindow(QMainWindow):
         self._cleanup_timer.timeout.connect(lambda: tracer().purge_old_logs())
         self._cleanup_timer.start(self._LOG_CLEANUP_MS)
 
-        # One-time autostart check shortly after launch.
-        QTimer.singleShot(self._AUTOSTART_DELAY_MS, self._autostart_missing)
+        # Autostart watchdog: repeatedly (re)start autostart connections that are
+        # not running. The interval (settings.check_interval) is also the delay
+        # before the first check after launch (QTimer fires after one interval).
+        self._autostart_timer = QTimer(self)
+        self._autostart_timer.timeout.connect(self._autostart_missing)
+        self._autostart_timer.start(self.settings.check_interval * 1000)
 
     def _push_connections(self) -> None:
         """Send the connection snapshot (incl. effective gateway path) to monitor."""
@@ -477,8 +478,9 @@ class MainWindow(QMainWindow):
         storage.save_connections(self.connections)
 
     def _autostart_missing(self) -> None:
-        """One-time: start every autostart connection that isn't already running
-        (in its default mode). Runs once, a short while after launch."""
+        """Periodic autostart: start every autostart connection that isn't
+        already running (in its default mode). Runs every check_interval seconds
+        so a connection comes back if it is closed while autostart stays on."""
         for entry in self.connections:
             if entry.autostart and not self._monitor.is_active(entry.id):
                 tracer().info(tr('msg_autostart', name=entry.name))
@@ -570,6 +572,7 @@ class MainWindow(QMainWindow):
             if updated:
                 self.settings = updated
                 storage.save_settings(updated)
+                self._autostart_timer.setInterval(updated.check_interval * 1000)
                 self._push_connections()
                 self._rebuild_cards()
                 tracer().info(tr('msg_settings_ok'))
