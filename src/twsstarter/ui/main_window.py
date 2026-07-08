@@ -36,6 +36,9 @@ class _AutofillBridge(QObject):
 class MainWindow(QMainWindow):
     _MONITOR_INTERVAL = 10.0          # seconds between runtime checks
     _LOG_CLEANUP_MS = 6 * 3600 * 1000  # purge old logs every 6 hours
+    # Grace period after launch before autostart kicks in — long enough for the
+    # monitor to detect already-running instances so they are not double-started.
+    _AUTOSTART_DELAY_MS = 15 * 1000
 
     def __init__(self):
         super().__init__()
@@ -77,6 +80,9 @@ class MainWindow(QMainWindow):
         self._cleanup_timer = QTimer(self)
         self._cleanup_timer.timeout.connect(lambda: tracer().purge_old_logs())
         self._cleanup_timer.start(self._LOG_CLEANUP_MS)
+
+        # One-time autostart check shortly after launch.
+        QTimer.singleShot(self._AUTOSTART_DELAY_MS, self._autostart_missing)
 
     def _push_connections(self) -> None:
         """Send the connection snapshot (incl. effective gateway path) to monitor."""
@@ -305,6 +311,7 @@ class MainWindow(QMainWindow):
                 on_delete=self._on_delete,
                 on_stop=self._stop_one,
                 on_start=self._start_from_card,
+                on_autostart=self._on_autostart_changed,
             )
             self._cards[entry.id] = card
             self._cards_layout.addWidget(card)
@@ -463,6 +470,19 @@ class MainWindow(QMainWindow):
         else:
             is_gw = mode == "gateway"
         self._start_one(entry, is_gateway=is_gw)
+
+    def _on_autostart_changed(self, entry: ConnectionEntry, value: bool) -> None:
+        """Persist a card's autostart toggle."""
+        entry.autostart = value
+        storage.save_connections(self.connections)
+
+    def _autostart_missing(self) -> None:
+        """One-time: start every autostart connection that isn't already running
+        (in its default mode). Runs once, a short while after launch."""
+        for entry in self.connections:
+            if entry.autostart and not self._monitor.is_active(entry.id):
+                tracer().info(tr('msg_autostart', name=entry.name))
+                self._start_from_card(entry, "default")
 
     def _start_checked(self, mode: str) -> None:
         """mode: 'tws' | 'gateway' | 'default'."""

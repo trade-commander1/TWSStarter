@@ -19,6 +19,9 @@ class ConnectionEntry:
     default_mode: str = "tws"      # "tws" | "gateway"
     # Whether this connection is ticked in the list (persisted).
     checked: bool = False
+    # If True (default), MainWindow starts this connection shortly after launch
+    # when it isn't already running.
+    autostart: bool = True
     # Account id learned from the TWS window title (e.g. "DUH077320") the first
     # time this connection is launched. Used for session-independent runtime
     # detection, because the login username often differs from the account id.
@@ -40,6 +43,7 @@ class ConnectionEntry:
             "paper_trading": self.paper_trading,
             "default_mode": self.default_mode,
             "checked": self.checked,
+            "autostart": self.autostart,
             "account_id": self.account_id,
             "gateway_account_dir": self.gateway_account_dir,
         }
@@ -56,6 +60,7 @@ class ConnectionEntry:
             paper_trading=d.get("paper_trading", False),
             default_mode=d.get("default_mode", "tws"),
             checked=d.get("checked", False),
+            autostart=d.get("autostart", True),
             account_id=d.get("account_id"),
             gateway_account_dir=d.get("gateway_account_dir"),
         )

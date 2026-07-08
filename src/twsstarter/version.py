@@ -107,11 +107,14 @@ History:
   1.9 Build 0 — First-run disclaimer: an English legal notice shown once on the
                 first start; acceptance is stored (settings.disclaimer_accepted).
                 Declining/closing exits the app.
+  1.10 Build 0 — Per-connection Autostart switch (default on) on each card. A
+                one-time check ~15 s after launch starts every autostart
+                connection (in its default mode) that is not already running.
 """
 from __future__ import annotations
 
 APP_NAME: str = "TWSStarter"
-VERSION: str = "1.9"   # X.Y — feature version
+VERSION: str = "1.10"  # X.Y — feature version
 BUILD: int = 0         # Z   — build number
 
 

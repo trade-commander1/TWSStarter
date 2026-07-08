@@ -45,6 +45,25 @@ class _StatusDot(QLabel):
         p.drawEllipse(0, 0, 10, 10)
 
 
+class _ToggleSwitch(QCheckBox):
+    """A small on/off switch — a checkbox painted as a pill toggle."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(38, 20)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def paintEvent(self, _event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(Qt.PenStyle.NoPen)
+        on = self.isChecked()
+        p.setBrush(QBrush(QColor("#22c55e") if on else QColor("#3a4055")))
+        p.drawRoundedRect(0, 2, 38, 16, 8, 8)
+        p.setBrush(QBrush(QColor("#ffffff")))
+        p.drawEllipse(21 if on else 3, 3, 14, 14)
+
+
 class ConnectionCard(QFrame):
     def __init__(
         self,
@@ -55,6 +74,7 @@ class ConnectionCard(QFrame):
         on_delete:  Callable[[ConnectionEntry], None],
         on_stop:    Callable[[ConnectionEntry], None],
         on_start:   Callable[[ConnectionEntry, str], None],
+        on_autostart: Callable[[ConnectionEntry, bool], None],
         parent=None,
     ):
         super().__init__(parent)
@@ -65,6 +85,7 @@ class ConnectionCard(QFrame):
         self._on_delete = on_delete
         self._on_stop = on_stop
         self._on_start = on_start
+        self._on_autostart = on_autostart
 
         self.setObjectName("connectionCard")
         self.setFrameShape(QFrame.Shape.StyledPanel)
@@ -110,11 +131,27 @@ class ConnectionCard(QFrame):
         self._run_lbl.setFixedWidth(22)
         self._run_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self._run_lbl.setStyleSheet("font-size:11px; font-weight:600; background:transparent;")
+        # Autostart switch (default on): the app starts this connection shortly
+        # after launch if it isn't already running (see MainWindow).
+        self._autostart_lbl = QLabel(tr('card_autostart'))
+        self._autostart_lbl.setToolTip(tr('tip_autostart'))
+        self._autostart_lbl.setStyleSheet(
+            "color:#94a3b8; font-size:11px; background:transparent;"
+        )
+        self._autostart = _ToggleSwitch()
+        self._autostart.setToolTip(tr('tip_autostart'))
+        self._autostart.setChecked(self.entry.autostart)
+        self._autostart.toggled.connect(
+            lambda v: self._on_autostart(self.entry, v)
+        )
+
         name_row.addWidget(self._run_lbl)
         name_row.addWidget(self._name_lbl)
         name_row.addWidget(self._mode_badge)
         name_row.addWidget(self._def_badge)
         name_row.addStretch()
+        name_row.addWidget(self._autostart_lbl)
+        name_row.addWidget(self._autostart, 0, Qt.AlignmentFlag.AlignVCenter)
         info.addLayout(name_row)
 
         self._user_lbl = QLabel(self.entry.username)
@@ -272,6 +309,10 @@ class ConnectionCard(QFrame):
         self._mode_badge.setText(tr('badge_paper') if entry.paper_trading else tr('badge_live'))
         self._mode_badge.setStyleSheet(self._badge_css(entry.paper_trading))
         self._def_badge.setText(self._default_mode_text())
+        self._autostart_lbl.setText(tr('card_autostart'))
+        self._autostart.blockSignals(True)
+        self._autostart.setChecked(entry.autostart)
+        self._autostart.blockSignals(False)
         self.set_checked(entry.checked)
 
     # ── internal ──────────────────────────────────────────────────
