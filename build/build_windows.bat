@@ -2,7 +2,7 @@
 :: TWSStarter — Windows build script
 :: Requires: uv installed and project dependencies synced.
 :: Optional: Inno Setup 6 for building the installer.
-:: Output: dist\TWSStarter.exe  and  build\installer_output\TWSStarter-X.Y.Z-Setup.exe
+:: Output: dist\TWSStarter.exe  and  dist\TWSStarter-X.Y.Z-Setup.exe
 
 setlocal enabledelayedexpansion
 
@@ -45,7 +45,7 @@ if errorlevel 1 (
 
 echo.
 echo  Output: dist\TWSStarter.exe
-echo  Output: build\installer_output\TWSStarter-%APP_VERSION%.%APP_BUILD%-Setup.exe
+echo  Output: dist\TWSStarter-%APP_VERSION%.%APP_BUILD%-Setup.exe
 
 :done
 endlocal

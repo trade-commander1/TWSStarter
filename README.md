@@ -52,8 +52,8 @@ it so packages stay in sync.
 
 - **Windows** — [`build/build_windows.bat`](build/build_windows.bat) produces
   `dist/TWSStarter.exe` and, if [Inno Setup 6](https://jrsoftware.org/isinfo.php)
-  is installed, an installer under `build/installer_output/`. The app icon is
-  regenerated with [`build/make_ico.py`](build/make_ico.py).
+  is installed, `dist/TWSStarter-<ver>-Setup.exe`. The app icon is regenerated
+  with [`build/make_ico.py`](build/make_ico.py).
 - **Linux** — [`build/build_linux.sh`](build/build_linux.sh) produces a single
   binary and a `.tar.gz` under `dist/`.
 

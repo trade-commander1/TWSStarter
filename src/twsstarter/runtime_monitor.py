@@ -176,12 +176,18 @@ class RuntimeMonitor(QObject):
                     gw_active[p] = active_gateway_dir(p)
 
         # ── TWS account-id learning by difference ──────────────────────
+        # Never attribute the same account to two connections: accounts already
+        # assigned to a connection, or just claimed by another pending one, are
+        # excluded from the fresh pool.
         learned: list[tuple[str, str]] = []
+        claimed_accounts: set[str] = {s.account_id for s in conns if s.account_id}
         with self._lock:
             for entry_id, (before, deadline, _grace) in list(self._pending.items()):
-                fresh = tws_accounts - before
+                fresh = (tws_accounts - before) - claimed_accounts
                 if fresh:
-                    learned.append((entry_id, sorted(fresh)[0]))
+                    acc = sorted(fresh)[0]
+                    learned.append((entry_id, acc))
+                    claimed_accounts.add(acc)
                 elif now_mono > deadline:
                     del self._pending[entry_id]
 
@@ -191,9 +197,16 @@ class RuntimeMonitor(QObject):
         gw_learned: list[tuple[str, str]] = []
         drop_pending: list[str] = []
 
+        claimed_pids: set[int] = set()
         for snap in conns:
-            # 1) TWS main window
-            if self._match_real(snap.name, snap.username, snap.account_id, instances):
+            # 1) TWS main window. Each running instance is attributed to at most
+            #    one connection (claimed by PID), so a single TWS is never
+            #    counted twice — even if two connections share an account id.
+            inst = self._match_real(
+                snap.name, snap.username, snap.account_id, instances, claimed_pids
+            )
+            if inst is not None:
+                claimed_pids.add(inst.pid)
                 states[snap.id] = "running"
                 types[snap.id] = "tws"
                 continue
@@ -246,15 +259,20 @@ class RuntimeMonitor(QObject):
             self.status_changed.emit(entry_id, "stopped", "")
 
     @staticmethod
-    def _match_real(name, username, account_id, instances):
-        """Return the logged-in TWS main window for a connection, or None.
+    def _match_real(name, username, account_id, instances, claimed_pids):
+        """Return an unclaimed logged-in TWS main window for a connection, or None.
 
         Only real main windows count (kind != 'login'). The account id is the
         first token of the TWS title, so account_id and name are matched with
         startswith to avoid false positives on common words ("Interactive",
-        "Brokers", "Trading", …); username is matched as a substring.
+        "Brokers", "Trading", …); username is matched as a substring. Instances
+        whose PID is already claimed by another connection are skipped, so one
+        running TWS maps to a single connection.
         """
-        mains = [i for i in instances if i.kind in ("tws", "gateway")]
+        mains = [
+            i for i in instances
+            if i.kind in ("tws", "gateway") and i.pid not in claimed_pids
+        ]
         for needle in (account_id, name):
             if not needle:
                 continue

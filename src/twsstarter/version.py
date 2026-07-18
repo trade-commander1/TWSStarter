@@ -116,12 +116,17 @@ History:
                 (seconds, default 30) controls the check cadence and the delay
                 before the first check. Also fixes Settings save dropping the
                 disclaimer-accepted flag. Help updated in all 10 languages.
+  1.11 Build 1 — Fix a running TWS being counted twice: each running instance is
+                now attributed to a single connection (claimed by PID), and an
+                account id is learned for only one connection (no duplicate
+                attribution when several are launched together). The Windows
+                installer is now written to dist/ (next to the exe).
 """
 from __future__ import annotations
 
 APP_NAME: str = "TWSStarter"
 VERSION: str = "1.11"  # X.Y — feature version
-BUILD: int = 0         # Z   — build number
+BUILD: int = 1         # Z   — build number
 
 
 def version_string() -> str:

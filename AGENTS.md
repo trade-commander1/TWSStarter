@@ -32,7 +32,7 @@ uv run python -m twsstarter.main   # run from source (or run.bat on Windows)
 ```
 
 - **Windows package:** `build/build_windows.bat` → `dist/TWSStarter.exe` and, if
-  Inno Setup 6 is installed, `build/installer_output/TWSStarter-<ver>-Setup.exe`.
+  Inno Setup 6 is installed, `dist/TWSStarter-<ver>-Setup.exe`.
   The `.exe`/installer icon comes from `build/TWSStarter.ico` (regenerate with
   `build/make_ico.py` when the icon changes).
 - **Linux package:** `build/build_linux.sh` → single binary + `.tar.gz` in
