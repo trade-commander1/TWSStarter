@@ -103,10 +103,21 @@ res/                 screenshots used in README/help
   visible.
 - **Status detection.** `process_scan.scan_running()` finds TWS by window-title
   regex and Gateway by a listening API port; `runtime_monitor` runs a background
-  thread and emits a 3-state status per connection. It is status-only — no
-  restarting.
+  thread and emits a 3-state status per connection (running/starting/stopped).
+  It is status-only — it never restarts anything. Invariant to preserve: each
+  running instance is attributed to **at most one** connection (claimed by PID),
+  and a learned TWS account id is assigned to only one connection — otherwise a
+  single TWS would be counted twice when connections share an account.
+- **Autostart (watchdog).** Independent of the monitor: `MainWindow` runs a
+  repeating `QTimer` every `AppSettings.check_interval` seconds (default 30, also
+  the delay before the first check). Each tick (re)starts, in its default mode,
+  every connection with `ConnectionEntry.autostart` on that is not currently
+  active — so a closed connection comes back while the switch stays on. This is
+  the *only* part that launches processes on its own; `runtime_monitor` does not.
 - **Storage.** Everything lives in `%LocalAppData%\TWSStarter\config.json`; logs
-  under `…\log`. `AppSettings.disclaimer_accepted` gates the first-run notice.
+  under `…\log`. `AppSettings.disclaimer_accepted` gates the first-run notice;
+  `AppSettings.check_interval` drives the autostart watchdog;
+  `ConnectionEntry.autostart` (default on) enables it per connection.
 
 ## Internationalization (`i18n/strings.py`)
 
