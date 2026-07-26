@@ -2,7 +2,7 @@
 :: TWSStarter — Windows build script
 :: Requires: uv installed and project dependencies synced.
 :: Optional: Inno Setup 6 for building the installer.
-:: Output: dist\TWSStarter.exe  and  dist\TWSStarter-X.Y.Z-Setup.exe
+:: Output: dist\TWSStarter\ (one-dir app)  and  dist\TWSStarter-X.Y.Z-Setup.exe
 
 setlocal enabledelayedexpansion
 
@@ -20,8 +20,8 @@ uv add --dev pyinstaller
 
 echo [2/4] Building executable ...
 uv run pyinstaller --clean --noconfirm build\TWSStarter.spec
-if not exist dist\TWSStarter.exe (
-    echo  ERROR: Build failed -- dist\TWSStarter.exe not found.
+if not exist dist\TWSStarter\TWSStarter.exe (
+    echo  ERROR: Build failed -- dist\TWSStarter\TWSStarter.exe not found.
     exit /b 1
 )
 
@@ -32,7 +32,7 @@ if exist "%ProgramFiles%\Inno Setup 6\ISCC.exe"      set "ISCC=%ProgramFiles%\In
 
 if not defined ISCC (
     echo  Inno Setup not found -- skipping installer.
-    echo  Output: dist\TWSStarter.exe
+    echo  Output: dist\TWSStarter\TWSStarter.exe
     goto :done
 )
 
@@ -44,7 +44,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo  Output: dist\TWSStarter.exe
+echo  Output: dist\TWSStarter\  (app folder)
 echo  Output: dist\TWSStarter-%APP_VERSION%.%APP_BUILD%-Setup.exe
 
 :done

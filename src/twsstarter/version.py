@@ -121,12 +121,16 @@ History:
                 account id is learned for only one connection (no duplicate
                 attribution when several are launched together). The Windows
                 installer is now written to dist/ (next to the exe).
+  1.11 Build 2 — Windows build switched from one-file to one-dir (installer
+                bundles dist/TWSStarter/). Fixes the "Failed to remove temporary
+                directory" (_MEI) warning shown a few seconds after closing the
+                app, and speeds up startup.
 """
 from __future__ import annotations
 
 APP_NAME: str = "TWSStarter"
 VERSION: str = "1.11"  # X.Y — feature version
-BUILD: int = 1         # Z   — build number
+BUILD: int = 2         # Z   — build number
 
 
 def version_string() -> str:

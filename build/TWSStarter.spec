@@ -57,24 +57,36 @@ a = Analysis(
 
 pyz = PYZ(a.pure)
 
+# One-dir build (not one-file): the app runs from its own folder, so there is
+# no per-run _MEI temp extraction/cleanup. This avoids the Windows "Failed to
+# remove temporary directory" warning on exit (a lingering worker thread could
+# hold a file in _MEI) and makes startup faster. The Inno Setup installer bundles
+# the whole dist/TWSStarter/ folder.
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
+    exclude_binaries=True,
     name='TWSStarter',
     icon=str(PROJ_ROOT / 'build' / 'TWSStarter.ico'),
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='TWSStarter',
 )

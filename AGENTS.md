@@ -31,8 +31,10 @@ uv sync                            # create venv, install deps
 uv run python -m twsstarter.main   # run from source (or run.bat on Windows)
 ```
 
-- **Windows package:** `build/build_windows.bat` → `dist/TWSStarter.exe` and, if
-  Inno Setup 6 is installed, `dist/TWSStarter-<ver>-Setup.exe`.
+- **Windows package:** `build/build_windows.bat` → one-dir app `dist/TWSStarter/`
+  and, if Inno Setup 6 is installed, `dist/TWSStarter-<ver>-Setup.exe`. One-dir
+  (not one-file) avoids the runtime `_MEI` temp extraction and its
+  "Failed to remove temporary directory" cleanup warning on exit.
   The `.exe`/installer icon comes from `build/TWSStarter.ico` (regenerate with
   `build/make_ico.py` when the icon changes).
 - **Linux package:** `build/build_linux.sh` → single binary + `.tar.gz` in

@@ -62,7 +62,8 @@ Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "{#DistDir}\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+; One-dir build: bundle the whole PyInstaller output folder (dist\TWSStarter\).
+Source: "{#DistDir}\TWSStarter\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#AppName}";            Filename: "{app}\{#AppExeName}"
