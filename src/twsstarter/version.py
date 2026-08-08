@@ -125,12 +125,17 @@ History:
                 bundles dist/TWSStarter/). Fixes the "Failed to remove temporary
                 directory" (_MEI) warning shown a few seconds after closing the
                 app, and speeds up startup.
+  1.11 Build 3 — Fix journal spam with Financial Advisor (FA) accounts: one FA
+                login opens the master plus many sub-account windows, which made
+                a connection flip-flop between accounts and re-trigger a check
+                each time. An account is now learned only once (only for a
+                connection without one), breaking the learn→re-check loop.
 """
 from __future__ import annotations
 
 APP_NAME: str = "TWSStarter"
 VERSION: str = "1.11"  # X.Y — feature version
-BUILD: int = 2         # Z   — build number
+BUILD: int = 3         # Z   — build number
 
 
 def version_string() -> str:

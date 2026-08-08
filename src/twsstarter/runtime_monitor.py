@@ -176,19 +176,25 @@ class RuntimeMonitor(QObject):
                     gw_active[p] = active_gateway_dir(p)
 
         # ── TWS account-id learning by difference ──────────────────────
-        # Never attribute the same account to two connections: accounts already
-        # assigned to a connection, or just claimed by another pending one, are
-        # excluded from the fresh pool.
+        # Learn an account for a connection only ONCE — only for a connection
+        # that does not already have one. This is essential for Financial Advisor
+        # (FA) logins, where one TWS opens the master plus many sub-account
+        # windows: without the "learn once" guard a connection would flip-flop
+        # between those accounts every cycle, and each learn re-triggers a check
+        # (learn → push → re-check → learn …), spamming the journal.
+        # Never attribute the same account to two connections either.
+        acct_by_id = {s.id: s.account_id for s in conns}
         learned: list[tuple[str, str]] = []
-        claimed_accounts: set[str] = {s.account_id for s in conns if s.account_id}
+        claimed_accounts: set[str] = {a for a in acct_by_id.values() if a}
         with self._lock:
             for entry_id, (before, deadline, _grace) in list(self._pending.items()):
-                fresh = (tws_accounts - before) - claimed_accounts
-                if fresh:
-                    acc = sorted(fresh)[0]
-                    learned.append((entry_id, acc))
-                    claimed_accounts.add(acc)
-                elif now_mono > deadline:
+                if not acct_by_id.get(entry_id):
+                    fresh = (tws_accounts - before) - claimed_accounts
+                    if fresh:
+                        acc = sorted(fresh)[0]
+                        learned.append((entry_id, acc))
+                        claimed_accounts.add(acc)
+                if now_mono > deadline:
                     del self._pending[entry_id]
 
         # ── Three-state detection ──────────────────────────────────────
