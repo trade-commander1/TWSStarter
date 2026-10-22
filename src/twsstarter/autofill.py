@@ -35,6 +35,16 @@ _MIN_LOGIN_H = 300
 
 _LOG_FILE = Path.home() / ".twsstarter" / "autofill.log"
 
+# Keyboard, mouse and clipboard are global: when several instances are started
+# at once, their autofill threads must not type concurrently (usernames would
+# get concatenated). The lock serializes the interaction phase; every login
+# window is claimed by exactly one thread so no window is filled twice.
+_FILL_LOCK = threading.Lock()
+_claimed_hwnds: set[int] = set()
+# Pause after submitting, still holding the lock, so the dialog processes the
+# Enter before the next thread takes the focus.
+_SUBMIT_GRACE = 1.5
+
 
 def _log(msg: str) -> None:
     """Append a timestamped line to the autofill log (best-effort)."""
@@ -142,8 +152,11 @@ def _find_login_window(is_gateway: bool, timeout: float) -> Optional[tuple[int, 
     while time.monotonic() < deadline:
         candidates: list[tuple[int, str, int, int]] = []
 
+        with _FILL_LOCK:
+            claimed = set(_claimed_hwnds)
+
         def _cb(hwnd: int, _) -> None:
-            if win32gui.IsWindowVisible(hwnd):
+            if hwnd not in claimed and win32gui.IsWindowVisible(hwnd):
                 if _is_login_window(hwnd, is_gateway):
                     title = win32gui.GetWindowText(hwnd)
                     w, h = _win_size(hwnd)
@@ -211,6 +224,62 @@ def _paste(text: str) -> None:
 
 # ── Main autofill logic ────────────────────────────────────────────────────
 
+def _fill_window(
+    hwnd: int,
+    title: str,
+    username: str,
+    password: str,
+    paper_trading: bool,
+    is_gateway: bool,
+) -> None:
+    """Fill and submit one login dialog. Caller must hold _FILL_LOCK."""
+    pos = _GW_POS if is_gateway else _TWS_POS
+    _log(f"matched '{title}' hwnd={hwnd} gateway={is_gateway}")
+
+    # The install4j Gateway loader keeps rebuilding the dialog for a moment;
+    # give it time to fully render before interacting.
+    fg = _ensure_foreground(hwnd)
+    settle = 2.5 if is_gateway else 1.0
+    _log(f"foreground={fg}; settling {settle}s")
+    time.sleep(settle)
+
+    rect = win32gui.GetWindowRect(hwnd)
+    w, h = rect[2] - rect[0], rect[3] - rect[1]
+    _log(f"window rect={rect} size={w}x{h}")
+
+    # ── 1. Select Live / Paper tab ─────────────────────────────────────
+    _ensure_foreground(hwnd)
+    tab_key = "tab_paper" if paper_trading else "tab_live"
+    tx, ty = pos[tab_key]
+    _log(f"click {tab_key} at rel=({tx},{ty})")
+    _click_rel(rect, tx, ty)
+    time.sleep(0.6)
+
+    # ── 2. Username ────────────────────────────────────────────────────
+    _ensure_foreground(hwnd)
+    ux, uy = pos["username"]
+    _log(f"click username at rel=({ux},{uy}); pasting username")
+    _click_rel(rect, ux, uy)
+    time.sleep(0.3)
+    _paste(username)
+    time.sleep(0.3)
+
+    # ── 3. Password via Tab navigation ─────────────────────────────────
+    # Tabbing from the username field is robust against layout shifts
+    # (the Live/Paper toggle changes the dialog height, so a fixed
+    # password coordinate may land on "More Options" instead).
+    _log("press Tab; pasting password")
+    pyautogui.press("tab")
+    time.sleep(0.3)
+    _paste(password)
+    time.sleep(0.35)
+
+    # ── 4. Submit with Enter ───────────────────────────────────────────
+    _log("press Enter (submit)")
+    pyautogui.press("enter")
+    _log("=== autofill done ===")
+
+
 def fill_login(
     username: str,
     password: str,
@@ -234,61 +303,30 @@ def fill_login(
         # Give the launcher a moment, then snapshot what is on screen.
         time.sleep(3.0)
         _dump_visible_titles()
-        result = _find_login_window(is_gateway, timeout)
+        deadline = time.monotonic() + timeout
 
-        if not result:
-            msg = f"Login window not found (timeout after {timeout}s)."
-            _log("ABORT: " + msg)
-            if on_done:
-                on_done(False, msg)
-            return
+        while True:
+            result = _find_login_window(is_gateway, max(0.0, deadline - time.monotonic()))
+            if not result:
+                msg = f"Login window not found (timeout after {timeout}s)."
+                _log("ABORT: " + msg)
+                if on_done:
+                    on_done(False, msg)
+                return
 
-        hwnd, title = result
-        pos = _GW_POS if is_gateway else _TWS_POS
-        _log(f"matched '{title}' hwnd={hwnd} gateway={is_gateway}")
-
-        # The install4j Gateway loader keeps rebuilding the dialog for a moment;
-        # give it time to fully render before interacting.
-        fg = _ensure_foreground(hwnd)
-        settle = 2.5 if is_gateway else 1.0
-        _log(f"foreground={fg}; settling {settle}s")
-        time.sleep(settle)
-
-        rect = win32gui.GetWindowRect(hwnd)
-        w, h = rect[2] - rect[0], rect[3] - rect[1]
-        _log(f"window rect={rect} size={w}x{h}")
-
-        # ── 1. Select Live / Paper tab ─────────────────────────────────
-        _ensure_foreground(hwnd)
-        tab_key = "tab_paper" if paper_trading else "tab_live"
-        tx, ty = pos[tab_key]
-        _log(f"click {tab_key} at rel=({tx},{ty})")
-        _click_rel(rect, tx, ty)
-        time.sleep(0.6)
-
-        # ── 2. Username ────────────────────────────────────────────────
-        _ensure_foreground(hwnd)
-        ux, uy = pos["username"]
-        _log(f"click username at rel=({ux},{uy}); pasting username")
-        _click_rel(rect, ux, uy)
-        time.sleep(0.3)
-        _paste(username)
-        time.sleep(0.3)
-
-        # ── 3. Password via Tab navigation ─────────────────────────────
-        # Tabbing from the username field is robust against layout shifts
-        # (the Live/Paper toggle changes the dialog height, so a fixed
-        # password coordinate may land on "More Options" instead).
-        _log("press Tab; pasting password")
-        pyautogui.press("tab")
-        time.sleep(0.3)
-        _paste(password)
-        time.sleep(0.35)
-
-        # ── 4. Submit with Enter ───────────────────────────────────────
-        _log("press Enter (submit)")
-        pyautogui.press("enter")
-        _log("=== autofill done ===")
+            hwnd, title = result
+            with _FILL_LOCK:
+                # Drop handles of closed windows; another thread may have
+                # claimed this window while we were waiting for the lock.
+                _claimed_hwnds.intersection_update(
+                    {h for h in _claimed_hwnds if win32gui.IsWindow(h)})
+                if hwnd in _claimed_hwnds or not win32gui.IsWindow(hwnd):
+                    _log(f"window hwnd={hwnd} already taken — searching again")
+                    continue
+                _claimed_hwnds.add(hwnd)
+                _fill_window(hwnd, title, username, password, paper_trading, is_gateway)
+                time.sleep(_SUBMIT_GRACE)
+            break
 
         if on_done:
             on_done(True, f"Credentials submitted ({title}).")

@@ -130,12 +130,16 @@ History:
                 a connection flip-flop between accounts and re-trigger a check
                 each time. An account is now learned only once (only for a
                 connection without one), breaking the learn→re-check loop.
+  1.11 Build 4 — Fix failed logins when several instances are started at once:
+                the autofill threads typed concurrently (usernames got
+                concatenated). Logins are now filled one after another (global
+                lock) and each login window is claimed by exactly one thread.
 """
 from __future__ import annotations
 
 APP_NAME: str = "TWSStarter"
 VERSION: str = "1.11"  # X.Y — feature version
-BUILD: int = 3         # Z   — build number
+BUILD: int = 4        # Z   — build number
 
 
 def version_string() -> str:
