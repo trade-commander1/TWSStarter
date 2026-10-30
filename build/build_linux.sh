@@ -13,7 +13,7 @@ read APP_VERSION APP_BUILD < <(uv run python -c "import twsstarter.version as v;
 echo "Building TWSStarter v${APP_VERSION} Build ${APP_BUILD}"
 
 echo "[1/3] Installing PyInstaller ..."
-uv add --dev pyinstaller
+uv sync --dev
 
 echo "[2/3] Building Linux binary ..."
 uv run pyinstaller \
@@ -47,12 +47,25 @@ if [ ! -f "dist/TWSStarter" ]; then
     exit 1
 fi
 
-# Versioned binary name + tarball
+# Versioned binary name + tarball. The tarball holds a folder with the binary,
+# the app icon and the per-user setup script (install.sh).
 VERSIONED="TWSStarter-${APP_VERSION}.${APP_BUILD}"
 cp -f "dist/TWSStarter" "dist/${VERSIONED}"
-tar -czf "dist/${VERSIONED}-linux-x86_64.tar.gz" -C dist "${VERSIONED}"
+PKG="dist/${VERSIONED}-linux-x86_64"
+rm -rf "$PKG"
+mkdir -p "$PKG"
+cp -f "dist/TWSStarter" "$PKG/TWSStarter"
+cp -f build/install_linux.sh "$PKG/install.sh"
+chmod +x "$PKG/install.sh"
+QT_QPA_PLATFORM=offscreen uv run python -c "
+import sys
+from PyQt6.QtWidgets import QApplication
+app = QApplication(sys.argv)
+from twsstarter.resources.icon import make_icon
+assert make_icon(256).save(sys.argv[1])" "$PKG/twsstarter.png"
+tar -czf "${PKG}.tar.gz" -C dist "$(basename "$PKG")"
 
 echo ""
 echo " Output: dist/TWSStarter            (generic binary)"
 echo " Output: dist/${VERSIONED}          (versioned binary)"
-echo " Output: dist/${VERSIONED}-linux-x86_64.tar.gz"
+echo " Output: ${PKG}.tar.gz  (binary + icon + install.sh)"

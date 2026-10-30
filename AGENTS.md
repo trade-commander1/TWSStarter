@@ -40,7 +40,9 @@ uv run python -m twsstarter.main   # run from source (or run.bat on Windows)
   The `.exe`/installer icon comes from `build/TWSStarter.ico` (regenerate with
   `build/make_ico.py` when the icon changes).
 - **Linux package:** `build/build_linux.sh` → single binary + `.tar.gz` in
-  `dist/`. Run it on Linux/WSL.
+  `dist/`; the tarball folder holds the binary, `twsstarter.png` and
+  `install.sh` (from `build/install_linux.sh`: per-user install + menu entry).
+  Run it on Linux/WSL.
 
 **Critical build gotcha — isolate virtualenvs per platform.** When building for
 both Windows and Linux from the same working tree (e.g. Windows + WSL over a

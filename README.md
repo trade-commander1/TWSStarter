@@ -57,7 +57,10 @@ it so packages stay in sync.
   `dist/TWSStarter-<ver>-Setup.exe`. The app icon is regenerated with
   [`build/make_ico.py`](build/make_ico.py).
 - **Linux** — [`build/build_linux.sh`](build/build_linux.sh) produces a single
-  binary and a `.tar.gz` under `dist/`.
+  binary and a `.tar.gz` under `dist/`. The archive contains the binary, the
+  icon and `install.sh`: unpack it and run `./install.sh` to install per user
+  (program, icon, application-menu entry; no root). `./install.sh --uninstall`
+  removes it again.
 
 > When building for both platforms from the same working tree (e.g. Windows +
 > WSL), give each its own virtualenv so they don't overwrite each other, e.g.

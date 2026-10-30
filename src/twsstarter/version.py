@@ -146,12 +146,15 @@ History:
                 events to that window only (no global fake input, so no GNOME
                 remote-control prompt; works when covered). Gateway autofill on
                 Linux is not supported yet.
+  1.12 Build 1 — Linux package gains a setup: the .tar.gz now holds a folder
+                with the binary, the app icon and install.sh (per-user install
+                with application-menu entry; --uninstall removes it).
 """
 from __future__ import annotations
 
 APP_NAME: str = "TWSStarter"
 VERSION: str = "1.12"  # X.Y — feature version
-BUILD: int = 0        # Z   — build number
+BUILD: int = 1        # Z   — build number
 
 
 def version_string() -> str:
