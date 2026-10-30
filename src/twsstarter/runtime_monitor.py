@@ -23,6 +23,7 @@ This is *status monitoring only* — it never restarts processes.
 """
 from __future__ import annotations
 
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -38,6 +39,8 @@ from twsstarter.process_scan import (
 
 if TYPE_CHECKING:
     from twsstarter.launcher import ProcessHandle
+
+_WIN32 = sys.platform == "win32"
 
 # How long to keep trying to learn an account id / gateway dir after a launch.
 _LEARN_TIMEOUT = 150.0
@@ -230,6 +233,15 @@ class RuntimeMonitor(QObject):
                     states[snap.id] = "running"
                     types[snap.id] = "gateway"
                     continue
+            # 2b) No window/port scan outside Windows: a session-launched process
+            #     that is still alive counts as running. Without this the
+            #     connection would drop to "stopped" after the starting phase
+            #     and the autostart watchdog would launch it again and again.
+            handle = handles.get(snap.id)
+            if not _WIN32 and handle is not None and handle.is_running():
+                states[snap.id] = "running"
+                types[snap.id] = "gateway" if handle.is_gateway else "tws"
+                continue
             # 3) Starting phase
             if snap.id in pending:
                 _before, _deadline, grace_until = pending[snap.id]

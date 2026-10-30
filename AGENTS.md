@@ -19,10 +19,12 @@ Independent project; not affiliated with Interactive Brokers. Licensed MIT.
 
 - **Python 3.13+**, **PyQt6**, `cryptography`, `pyautogui`, `pywinauto`.
 - Dependency/venv management: **`uv`**.
-- **Windows is the primary target.** The UI and launching work cross-platform,
-  but **autofill and runtime monitoring are Windows-only** (they use the Win32
-  API via `win32gui`/`pyautogui`). A Linux build is produced but those features
-  no-op there.
+- **Windows is the primary target.** The UI and launching work cross-platform.
+  **Runtime monitoring is Windows-only** (Win32 API via `win32gui`); on Linux a
+  connection counts as running while its session-launched process is alive.
+  **Autofill** works on Windows (`pyautogui`/`win32gui`) and on Linux for TWS
+  only, via `x11input` (libX11 over ctypes, X11/XWayland). The Linux
+  launcher looks for `tws` / `ibgateway`; default path `~/Jts`.
 
 ## Run & build
 
@@ -74,7 +76,9 @@ src/twsstarter/
                      data.json migration
   crypto.py          machine-bound credential encryption (see below)
   launcher.py        start TWS/Gateway; passes is_gateway to autofill
-  autofill.py        fill the login dialog (Windows; pyautogui/win32)
+  autofill.py        fill the login dialog (Windows: pyautogui/win32;
+                     Linux: x11input, TWS only)
+  x11input.py        X11 window list + synthetic click/type events (ctypes)
   process_scan.py    system-wide TWS/Gateway detection (Windows)
   runtime_monitor.py background status thread (running/starting/stopped)
   tracing.py         GUI trace feed + rotating file log
@@ -103,6 +107,18 @@ res/                 screenshots used in README/help
   as a language-independent fallback; Gateway by its (non-localized) product
   title. Autofill uses simulated clicks/keystrokes — keep the login window
   visible.
+- **Linux autofill (`x11input`).** Uses libX11 directly, not python-xlib (which
+  rejects Mutter's XWayland Xauthority entry with an empty display number).
+  The login window is found by the launched **PID** (`_NET_WM_PID`; the install4j
+  `tws` script `exec`s java) and title/`jclient` class. Positions in
+  `_TWS_POS_X11` are relative to the client area (no decoration). Input is
+  sent with `XSendEvent` to the innermost Java window — **not XTEST**: GNOME
+  runs XWayland with `-enable-ei-portal`, so XTEST needs an interactive
+  remote-control approval (easily missed, possibly per process) and replays
+  events that were not yet allowed. Synthetic events need no approval, reach
+  only that window and work when it is covered. Java ignores keys sent to the
+  top-level frame; send them to the inner content window. TWS login fields
+  accept ASCII only; a username containing `@` switches TWS to the demo page.
 - **Status detection.** `process_scan.scan_running()` finds TWS by window-title
   regex and Gateway by a listening API port; `runtime_monitor` runs a background
   thread and emits a 3-state status per connection (running/starting/stopped).

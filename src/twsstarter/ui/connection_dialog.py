@@ -8,10 +8,10 @@ from PyQt6.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QFrame, QFileDialog,
     QButtonGroup, QRadioButton,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QDir, Qt
 from twsstarter import crypto
 from twsstarter.i18n import tr
-from twsstarter.models import ConnectionEntry
+from twsstarter.models import DEFAULT_TWS_PATH, GATEWAY_PATH_HINT, ConnectionEntry
 
 _TOGGLE_CSS = """
 QRadioButton {
@@ -219,11 +219,11 @@ class ConnectionDialog(QDialog):
         form.setContentsMargins(0, 0, 0, 0)
 
         self._tws_edit = QLineEdit()
-        self._tws_edit.setPlaceholderText(r"C:\jts")
+        self._tws_edit.setPlaceholderText(DEFAULT_TWS_PATH)
         form.addRow(self._lbl(tr('lbl_tws_path')), self._path_row(self._tws_edit))
 
         self._gw_edit = QLineEdit()
-        self._gw_edit.setPlaceholderText(r"C:\ibgateway")
+        self._gw_edit.setPlaceholderText(GATEWAY_PATH_HINT)
         form.addRow(self._lbl(tr('lbl_gw_path')), self._path_row(self._gw_edit))
 
         layout.addLayout(form)
@@ -267,9 +267,10 @@ class ConnectionDialog(QDialog):
         )
 
     def _browse(self, target: QLineEdit) -> None:
-        path = QFileDialog.getExistingDirectory(self, tr('settings_title'), target.text() or "C:\\")
+        path = QFileDialog.getExistingDirectory(self, tr('settings_title'), target.text() or QDir.homePath())
         if path:
-            target.setText(path.replace("/", "\\"))
+            # Native separators: '\\' on Windows, '/' elsewhere.
+            target.setText(QDir.toNativeSeparators(path))
 
     def _on_ok(self) -> None:
         name = self._name_edit.text().strip()

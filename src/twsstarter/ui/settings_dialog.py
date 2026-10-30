@@ -3,9 +3,9 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLabel, QLineEdit, QPushButton, QFrame, QFileDialog, QSpinBox,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QDir, Qt
 from twsstarter.i18n import tr
-from twsstarter.models import AppSettings
+from twsstarter.models import DEFAULT_TWS_PATH, GATEWAY_PATH_HINT, AppSettings
 
 
 class SettingsDialog(QDialog):
@@ -39,11 +39,11 @@ class SettingsDialog(QDialog):
         form.setContentsMargins(0, 0, 0, 0)
 
         self._tws_edit = QLineEdit()
-        self._tws_edit.setPlaceholderText(r"C:\jts")
+        self._tws_edit.setPlaceholderText(DEFAULT_TWS_PATH)
         form.addRow(self._lbl(tr('lbl_tws_dir')), self._path_row(self._tws_edit))
 
         self._gw_edit = QLineEdit()
-        self._gw_edit.setPlaceholderText(r"C:\ibgateway")
+        self._gw_edit.setPlaceholderText(GATEWAY_PATH_HINT)
         form.addRow(self._lbl(tr('lbl_gw_dir')), self._path_row(self._gw_edit))
 
         root.addLayout(form)
@@ -111,14 +111,15 @@ class SettingsDialog(QDialog):
         return row
 
     def _browse(self, target: QLineEdit) -> None:
-        path = QFileDialog.getExistingDirectory(self, tr('settings_title'), target.text() or "C:\\")
+        path = QFileDialog.getExistingDirectory(self, tr('settings_title'), target.text() or QDir.homePath())
         if path:
-            target.setText(path.replace("/", "\\"))
+            # Native separators: '\\' on Windows, '/' elsewhere.
+            target.setText(QDir.toNativeSeparators(path))
 
     def _on_ok(self) -> None:
         # Preserve fields not editable here (e.g. disclaimer acceptance).
         self._result = AppSettings(
-            default_tws_path=self._tws_edit.text().strip() or r"C:\jts",
+            default_tws_path=self._tws_edit.text().strip() or DEFAULT_TWS_PATH,
             default_gateway_path=self._gw_edit.text().strip(),
             language=self._current_lang,
             disclaimer_accepted=self._disclaimer_accepted,

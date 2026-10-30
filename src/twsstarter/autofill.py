@@ -4,6 +4,10 @@ Automated login form filler for the TWS / IB Gateway login dialog.
 Detects whether the TWS or Gateway dialog is open by window title,
 then fills username, password and selects the trading mode using
 relative coordinates (fraction of window width/height).
+
+Windows uses the Win32 API + pyautogui. Linux sends synthetic X11 events to the
+login window (XWayland under Wayland) through x11input; there only TWS is
+supported so far (the Gateway dialog layout has not been measured on Linux).
 """
 from __future__ import annotations
 
@@ -25,6 +29,8 @@ if _WIN32:
 
     pyautogui.FAILSAFE = True
     pyautogui.PAUSE = 0.04
+else:
+    from twsstarter import x11input
 
 logger = logging.getLogger(__name__)
 
@@ -222,6 +228,98 @@ def _paste(text: str) -> None:
     pyautogui.hotkey("ctrl", "v")
 
 
+# ── Linux (X11 / XWayland) ────────────────────────────────────────────────
+# Relative positions inside the client area (no window decoration), measured on
+# the Linux TWS login dialog (990 × 513 px). Switching to Paper shifts the form
+# down a few pixels; the username y lies inside the field in both modes.
+_TWS_POS_X11: dict[str, tuple[float, float]] = {
+    "tab_live":   (0.584, 0.326),
+    "tab_paper":  (0.680, 0.326),
+    "username":   (0.722, 0.435),
+}
+
+def _x11_is_login(w: "x11input.XWindow", pid: Optional[int]) -> bool:
+    """TWS login dialog: the window of the launched process (if known), with a
+    known localized title or the TWS client window class."""
+    if pid is not None and w.pid is not None and w.pid != pid:
+        return False
+    if w.title in _GW_TITLES or "Interactive Brokers" in w.title:
+        return False          # Gateway, or the logged-in TWS main window
+    return (w.title.strip().lower() in _TWS_LOGIN_TITLES
+            or "jclient" in w.wm_class.lower())
+
+
+def _x11_find_login(pid: Optional[int], timeout: float) -> Optional["x11input.XWindow"]:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        with _FILL_LOCK:
+            claimed = set(_claimed_hwnds)
+        for w in x11input.list_windows():
+            if w.wid in claimed or not _x11_is_login(w, pid):
+                continue
+            if w.width >= _MIN_LOGIN_W and w.height >= _MIN_LOGIN_H:
+                _log(f"login window accepted: '{w.title}' wid={w.wid} pid={w.pid} "
+                     f"class={w.wm_class} size={w.width}x{w.height}")
+                return w
+        time.sleep(1.0)
+    return None
+
+
+def _x11_fill(w: "x11input.XWindow", username: str, password: str,
+              paper_trading: bool) -> None:
+    """Fill and submit one TWS login dialog. Caller must hold _FILL_LOCK.
+
+    Clicks and keys are synthetic events addressed to this window only, so the
+    window need not be visible or focused and nothing reaches other windows.
+    """
+    time.sleep(1.0)                       # let the dialog finish rendering
+    w = x11input.get_window(w.wid) or w   # current size
+    _log(f"window size={w.width}x{w.height}")
+
+    tab_key = "tab_paper" if paper_trading else "tab_live"
+    _log(f"click {tab_key}")
+    x11input.click(w, *_TWS_POS_X11[tab_key])
+    time.sleep(0.8)
+
+    _log("click username; typing username")
+    x11input.click(w, *_TWS_POS_X11["username"])
+    time.sleep(0.3)
+    x11input.press(w, "a", ctrl=True)
+    x11input.type_text(w, username)
+    time.sleep(0.3)
+
+    _log("press Tab; typing password")
+    x11input.press(w, "Tab")
+    time.sleep(0.3)
+    x11input.press(w, "a", ctrl=True)
+    x11input.type_text(w, password)
+    time.sleep(0.35)
+
+    _log("press Enter (submit)")
+    x11input.press(w, "Return")
+    _log("=== autofill done ===")
+
+
+def _x11_fill_login(username: str, password: str, paper_trading: bool,
+                    timeout: int, pid: Optional[int]) -> str:
+    """Linux flow of fill_login; returns the success message or raises."""
+    deadline = time.monotonic() + timeout
+    while True:
+        w = _x11_find_login(pid, max(0.0, deadline - time.monotonic()))
+        if w is None:
+            raise TimeoutError(f"Login window not found (timeout after {timeout}s).")
+        with _FILL_LOCK:
+            live = {win.wid for win in x11input.list_windows()}
+            _claimed_hwnds.intersection_update(live)
+            if w.wid in _claimed_hwnds or w.wid not in live:
+                _log(f"window wid={w.wid} already taken — searching again")
+                continue
+            _claimed_hwnds.add(w.wid)
+            _x11_fill(w, username, password, paper_trading)
+            time.sleep(_SUBMIT_GRACE)
+        return f"Credentials submitted ({w.title})."
+
+
 # ── Main autofill logic ────────────────────────────────────────────────────
 
 def _fill_window(
@@ -287,15 +385,29 @@ def fill_login(
     is_gateway: bool,
     timeout: int = 90,
     on_done: Optional[Callable[[bool, str], None]] = None,
+    pid: Optional[int] = None,
 ) -> None:
     """Wait for the login window and fill credentials. Runs in a daemon thread.
 
     `is_gateway` is passed by the caller (it knows whether TWS or Gateway was
     launched), so detection does not depend on the localized window title.
+    `pid` (Linux) restricts detection to the windows of the launched process.
     """
     if not _WIN32:
-        if on_done:
-            on_done(False, "Autofill not supported on this platform.")
+        if is_gateway or not x11input.available():
+            if on_done:
+                on_done(False, "Autofill not supported here (Linux: TWS on X11/XWayland only).")
+            return
+        try:
+            _log(f"=== autofill start (x11, paper={paper_trading}, pid={pid}, "
+                 f"timeout={timeout}s) ===")
+            msg = _x11_fill_login(username, password, paper_trading, timeout, pid)
+            if on_done:
+                on_done(True, msg)
+        except Exception as exc:
+            _log(f"ABORT: {exc!r}")
+            if on_done:
+                on_done(False, f"Autofill error: {exc}")
         return
     try:
         _log(f"=== autofill start (gateway={is_gateway}, paper={paper_trading}, "
@@ -345,11 +457,12 @@ def start_thread(
     is_gateway: bool,
     timeout: int = 90,
     on_done: Optional[Callable[[bool, str], None]] = None,
+    pid: Optional[int] = None,
 ) -> threading.Thread:
     """Start autofill in a background daemon thread and return it."""
     t = threading.Thread(
         target=fill_login,
-        args=(username, password, paper_trading, is_gateway, timeout, on_done),
+        args=(username, password, paper_trading, is_gateway, timeout, on_done, pid),
         daemon=True,
         name="TWSAutofill",
     )

@@ -2,8 +2,19 @@
 each with JSON (de)serialization for storage.py."""
 from __future__ import annotations
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
+import sys
 import uuid
+
+# Platform-typical install folders: default TWS path and the path placeholders
+# shown in the dialogs (Linux installers put TWS/Gateway under ~/Jts).
+if sys.platform == "win32":
+    DEFAULT_TWS_PATH = r"C:\jts"
+    GATEWAY_PATH_HINT = r"C:\ibgateway"
+else:
+    DEFAULT_TWS_PATH = str(Path.home() / "Jts")
+    GATEWAY_PATH_HINT = str(Path.home() / "Jts" / "ibgateway")
 
 
 @dataclass
@@ -68,7 +79,7 @@ class ConnectionEntry:
 
 @dataclass
 class AppSettings:
-    default_tws_path: str = r"C:\jts"
+    default_tws_path: str = DEFAULT_TWS_PATH
     default_gateway_path: str = ""
     language: str = "auto"
     # Whether the one-time first-run disclaimer has been accepted.
@@ -90,7 +101,7 @@ class AppSettings:
     @classmethod
     def from_dict(cls, d: dict) -> AppSettings:
         return cls(
-            default_tws_path=d.get("default_tws_path", r"C:\jts"),
+            default_tws_path=d.get("default_tws_path", DEFAULT_TWS_PATH),
             default_gateway_path=d.get("default_gateway_path", ""),
             language=d.get("language", "auto"),
             disclaimer_accepted=d.get("disclaimer_accepted", False),

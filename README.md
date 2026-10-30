@@ -31,9 +31,10 @@ running or restart them — for that, use TWS's own Auto Restart (see
 - **Python 3.13+**
 - [`uv`](https://docs.astral.sh/uv/) for dependency management
 - Dependencies (resolved by `uv`): PyQt6, cryptography, pyautogui, pywinauto
-- **Platform:** the UI and launching work cross-platform, but **autofill and
-  runtime monitoring are Windows-only** (they use the Win32 API). Prebuilt
-  Windows and Linux binaries are provided.
+- **Platform:** the UI and launching work cross-platform. **Autofill** works on
+  Windows (TWS + Gateway) and on Linux for TWS (X11/XWayland). **Runtime
+  monitoring** is Windows-only (Win32 API); on Linux only instances started by
+  TWSStarter are tracked. Prebuilt Windows and Linux binaries are provided.
 
 ## Getting started (from source)
 

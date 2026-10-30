@@ -134,12 +134,24 @@ History:
                 the autofill threads typed concurrently (usernames got
                 concatenated). Logins are now filled one after another (global
                 lock) and each login window is claimed by exactly one thread.
+  1.11 Build 5 — Linux launch fixes: folder dialogs keep native '/' separators
+                (were converted to '\\'), launcher looks for 'tws'/'ibgateway'
+                and repairs stored backslash paths, default path is ~/Jts. A live
+                session-launched process counts as running on non-Windows (no
+                window scan there), so autostart no longer relaunches it.
+  1.12 Build 0 — TWS autofill on Linux (X11 / XWayland): new x11input module
+                (libX11 via ctypes) finds the login window of the launched
+                process by PID, selects Live/Paper, types username and password
+                layout-independently and submits. Input is sent as synthetic
+                events to that window only (no global fake input, so no GNOME
+                remote-control prompt; works when covered). Gateway autofill on
+                Linux is not supported yet.
 """
 from __future__ import annotations
 
 APP_NAME: str = "TWSStarter"
-VERSION: str = "1.11"  # X.Y — feature version
-BUILD: int = 4        # Z   — build number
+VERSION: str = "1.12"  # X.Y — feature version
+BUILD: int = 0        # Z   — build number
 
 
 def version_string() -> str:
