@@ -1,0 +1,2 @@
+# Shell scripts run on Linux (and are shipped in the Linux package): keep LF.
+*.sh text eol=lf
