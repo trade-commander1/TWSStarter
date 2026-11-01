@@ -47,7 +47,10 @@ def launch_tws(
     entry: ConnectionEntry,
     settings: AppSettings,
     on_autofill_done: Optional[Callable[[bool, str], None]] = None,
+    on_login_submitted: Optional[Callable[[int], None]] = None,
 ) -> ProcessHandle:
+    """Start TWS; `on_login_submitted(pid)` reports the PID of the filled login
+    window so the caller can verify the master account after login."""
     path = (entry.tws_path or settings.default_tws_path or "").strip()
     if not path:
         raise ValueError("No TWS path configured. Set it in Settings or on the connection entry.")
@@ -56,6 +59,7 @@ def launch_tws(
     autofill.start_thread(
         entry.username, password, entry.paper_trading,
         is_gateway=False, on_done=on_autofill_done, pid=handle.pid,
+        on_submitted=on_login_submitted,
     )
     return handle
 

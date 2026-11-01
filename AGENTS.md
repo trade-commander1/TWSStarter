@@ -128,6 +128,15 @@ res/                 screenshots used in README/help
   running instance is attributed to **at most one** connection (claimed by PID),
   and a learned TWS account id is assigned to only one connection — otherwise a
   single TWS would be counted twice when connections share an account.
+- **Master-account check (TWS only).** `ConnectionEntry.name` is the IB master
+  account (validated by `process_scan.is_account_id`, shown in the list).
+  Autofill reports the PID of the login window it filled (`on_submitted`);
+  `RuntimeMonitor.expect_master` then watches that process's main windows. If
+  only foreign accounts show for `_VERIFY_GRACE` seconds, the process is
+  terminated and `MainWindow` switches the connection's autostart off (else the
+  watchdog would log the wrong account in again). Gateway titles carry no
+  account, so Gateway launches are not verified. Legacy free-text names are not
+  verified until edited. Account matching is exact (first title token).
 - **Autostart (watchdog).** Independent of the monitor: `MainWindow` runs a
   repeating `QTimer` every `AppSettings.check_interval` seconds (default 30, also
   the delay before the first check). Each tick (re)starts, in its default mode,

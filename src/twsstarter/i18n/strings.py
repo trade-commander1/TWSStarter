@@ -2328,6 +2328,39 @@ for _lang, _d in _AUTOSTART_STRINGS.items():
     STRINGS.setdefault(_lang, {}).update(_d)
 
 
+# ── Master account instead of a free-text name (v1.13) ──────────────────────
+# The connection "name" is now the IB master account. After a TWS login the
+# account in the window title is checked against it; on mismatch TWS is closed.
+_MASTER_STRINGS = {
+    'en': {'lbl_name': 'Master account', 'ph_name': 'e.g.  U1234567  or  DU1234567', 'err_master_format': 'Enter the master account id (letters and digits only, no spaces).', 'msg_master_mismatch': "'{name}': wrong account logged in ({found}) — TWS closed, autostart off.", 'msg_master_ok': "'{name}': master account verified.", 'msg_master_unverified': "'{name}': master account could not be verified."},
+    'de': {'lbl_name': 'Master-Account', 'ph_name': 'z. B.  U1234567  oder  DU1234567', 'err_master_format': 'Master-Account-ID eingeben (nur Buchstaben und Ziffern, keine Leerzeichen).', 'msg_master_mismatch': "'{name}': falscher Account angemeldet ({found}) — TWS geschlossen, Autostart aus.", 'msg_master_ok': "'{name}': Master-Account bestätigt.", 'msg_master_unverified': "'{name}': Master-Account konnte nicht geprüft werden."},
+    'fr': {'lbl_name': 'Compte maître', 'ph_name': 'ex.  U1234567  ou  DU1234567', 'err_master_format': "Saisissez l'ID du compte maître (lettres et chiffres uniquement, sans espaces).", 'msg_master_mismatch': "'{name}' : mauvais compte connecté ({found}) — TWS fermé, démarrage auto désactivé.", 'msg_master_ok': "'{name}' : compte maître vérifié.", 'msg_master_unverified': "'{name}' : le compte maître n'a pas pu être vérifié."},
+    'es': {'lbl_name': 'Cuenta maestra', 'ph_name': 'ej.  U1234567  o  DU1234567', 'err_master_format': 'Introduzca el ID de la cuenta maestra (solo letras y dígitos, sin espacios).', 'msg_master_mismatch': "'{name}': cuenta incorrecta conectada ({found}) — TWS cerrado, inicio auto desactivado.", 'msg_master_ok': "'{name}': cuenta maestra verificada.", 'msg_master_unverified': "'{name}': no se pudo verificar la cuenta maestra."},
+    'it': {'lbl_name': 'Conto master', 'ph_name': 'es.  U1234567  o  DU1234567', 'err_master_format': "Inserire l'ID del conto master (solo lettere e cifre, senza spazi).", 'msg_master_mismatch': "'{name}': conto errato collegato ({found}) — TWS chiuso, avvio auto disattivato.", 'msg_master_ok': "'{name}': conto master verificato.", 'msg_master_unverified': "'{name}': impossibile verificare il conto master."},
+    'ru': {'lbl_name': 'Мастер-счёт', 'ph_name': 'напр.  U1234567  или  DU1234567', 'err_master_format': 'Введите ID мастер-счёта (только буквы и цифры, без пробелов).', 'msg_master_mismatch': "'{name}': выполнен вход в другой счёт ({found}) — TWS закрыт, автозапуск выключен.", 'msg_master_ok': "'{name}': мастер-счёт подтверждён.", 'msg_master_unverified': "'{name}': не удалось проверить мастер-счёт."},
+    'nl': {'lbl_name': 'Master-account', 'ph_name': 'bijv.  U1234567  of  DU1234567', 'err_master_format': 'Voer het master-account-ID in (alleen letters en cijfers, geen spaties).', 'msg_master_mismatch': "'{name}': verkeerd account ingelogd ({found}) — TWS gesloten, autostart uit.", 'msg_master_ok': "'{name}': master-account bevestigd.", 'msg_master_unverified': "'{name}': master-account kon niet worden gecontroleerd."},
+    'pt': {'lbl_name': 'Conta master', 'ph_name': 'ex.  U1234567  ou  DU1234567', 'err_master_format': 'Informe o ID da conta master (apenas letras e dígitos, sem espaços).', 'msg_master_mismatch': "'{name}': conta errada conectada ({found}) — TWS fechado, início auto desativado.", 'msg_master_ok': "'{name}': conta master verificada.", 'msg_master_unverified': "'{name}': não foi possível verificar a conta master."},
+    'zh': {'lbl_name': '主账户', 'ph_name': '例如  U1234567  或  DU1234567', 'err_master_format': '请输入主账户 ID（仅字母和数字，不含空格）。', 'msg_master_mismatch': "'{name}'：登录了错误的账户（{found}）—— TWS 已关闭，自动启动已关闭。", 'msg_master_ok': "'{name}'：主账户已验证。", 'msg_master_unverified': "'{name}'：无法验证主账户。"},
+    'ja': {'lbl_name': 'マスター口座', 'ph_name': '例：U1234567 または DU1234567', 'err_master_format': 'マスター口座 ID を入力してください（英数字のみ、空白なし）。', 'msg_master_mismatch': "'{name}'：別の口座でログインしました（{found}）—— TWS を閉じ、自動起動をオフにしました。", 'msg_master_ok': "'{name}'：マスター口座を確認しました。", 'msg_master_unverified': "'{name}'：マスター口座を確認できませんでした。"},
+}
+for _lang, _d in _MASTER_STRINGS.items():
+    STRINGS.setdefault(_lang, {}).update(_d)
+
+# Help note appended to "Adding a Connection" (all languages).
+_HELP_MASTER = {
+    'en': '<p><b>Master account:</b> enter the IB master account id (e.g. <code>U1234567</code>, paper <code>DU1234567</code>) — it is the name shown in the list. After a <b>TWS</b> login TWSStarter compares it with the account in the TWS title bar; if it does not match, that TWS is closed and autostart is switched off for the connection, so the wrong account never stays logged in. IB Gateway shows no account, so this check applies to TWS only.</p>',
+    'de': '<p><b>Master-Account:</b> Geben Sie die IB-Master-Account-ID ein (z. B. <code>U1234567</code>, Paper <code>DU1234567</code>) — sie wird als Name in der Liste angezeigt. Nach einem <b>TWS</b>-Login vergleicht TWSStarter sie mit dem Account in der TWS-Titelleiste; stimmt er nicht überein, wird diese TWS geschlossen und Autostart für die Verbindung abgeschaltet, damit nie der falsche Account angemeldet bleibt. IB Gateway zeigt keinen Account an, daher gilt die Prüfung nur für TWS.</p>',
+    'fr': "<p><b>Compte maître :</b> saisissez l'ID du compte maître IB (ex. <code>U1234567</code>, papier <code>DU1234567</code>) — c'est le nom affiché dans la liste. Après une connexion <b>TWS</b>, TWSStarter le compare au compte affiché dans la barre de titre de TWS ; s'il ne correspond pas, ce TWS est fermé et le démarrage auto est désactivé pour la connexion, afin que le mauvais compte ne reste jamais connecté. IB Gateway n'affiche aucun compte : ce contrôle ne s'applique qu'à TWS.</p>",
+    'es': '<p><b>Cuenta maestra:</b> introduzca el ID de la cuenta maestra de IB (p. ej. <code>U1234567</code>, papel <code>DU1234567</code>) — es el nombre que se muestra en la lista. Tras un inicio de sesión en <b>TWS</b>, TWSStarter lo compara con la cuenta de la barra de título de TWS; si no coincide, ese TWS se cierra y se desactiva el inicio auto de la conexión, para que nunca quede conectada la cuenta equivocada. IB Gateway no muestra ninguna cuenta, por lo que esta comprobación solo se aplica a TWS.</p>',
+    'it': "<p><b>Conto master:</b> inserire l'ID del conto master IB (es. <code>U1234567</code>, paper <code>DU1234567</code>) — è il nome mostrato nell'elenco. Dopo un login <b>TWS</b>, TWSStarter lo confronta con il conto nella barra del titolo di TWS; se non corrisponde, quel TWS viene chiuso e l'avvio auto della connessione viene disattivato, così il conto sbagliato non resta mai collegato. IB Gateway non mostra alcun conto, quindi il controllo vale solo per TWS.</p>",
+    'ru': '<p><b>Мастер-счёт:</b> введите ID мастер-счёта IB (напр. <code>U1234567</code>, бумажный <code>DU1234567</code>) — это имя, отображаемое в списке. После входа в <b>TWS</b> TWSStarter сравнивает его со счётом в заголовке окна TWS; при несовпадении этот TWS закрывается, а автозапуск соединения выключается, чтобы неверный счёт не оставался подключённым. IB Gateway не показывает счёт, поэтому проверка действует только для TWS.</p>',
+    'nl': '<p><b>Master-account:</b> voer het IB-master-account-ID in (bijv. <code>U1234567</code>, paper <code>DU1234567</code>) — dit is de naam in de lijst. Na een <b>TWS</b>-login vergelijkt TWSStarter het met het account in de titelbalk van TWS; komt het niet overeen, dan wordt die TWS gesloten en autostart voor de verbinding uitgezet, zodat nooit het verkeerde account ingelogd blijft. IB Gateway toont geen account, dus deze controle geldt alleen voor TWS.</p>',
+    'pt': '<p><b>Conta master:</b> informe o ID da conta master da IB (ex. <code>U1234567</code>, papel <code>DU1234567</code>) — é o nome mostrado na lista. Após um login no <b>TWS</b>, o TWSStarter o compara com a conta na barra de título do TWS; se não coincidir, esse TWS é fechado e o início auto da conexão é desativado, para que a conta errada nunca fique conectada. O IB Gateway não mostra nenhuma conta, então esta verificação vale apenas para o TWS.</p>',
+    'zh': '<p><b>主账户：</b>请输入 IB 主账户 ID（例如 <code>U1234567</code>，模拟账户 <code>DU1234567</code>）—— 它就是列表中显示的名称。<b>TWS</b> 登录后，TWSStarter 会将其与 TWS 标题栏中的账户进行比较；如不一致，该 TWS 会被关闭，并关闭此连接的自动启动，确保错误的账户不会保持登录。IB Gateway 不显示账户，因此该检查仅适用于 TWS。</p>',
+    'ja': '<p><b>マスター口座：</b>IB のマスター口座 ID（例：<code>U1234567</code>、ペーパー <code>DU1234567</code>）を入力します。これが一覧に表示される名前です。<b>TWS</b> へのログイン後、TWSStarter はこれを TWS のタイトルバーの口座と比較し、一致しない場合はその TWS を閉じて接続の自動起動をオフにします。これにより誤った口座がログインしたままになることはありません。IB Gateway は口座を表示しないため、この確認は TWS のみに適用されます。</p>',
+}
+
+
 # ── Help restructuring (v1.8) ───────────────────────────────────────────────
 # Applied to every supported language, driven by translated fragments below:
 #   1. A prominent callout box under the title clarifying that TWSStarter only
@@ -2406,7 +2439,8 @@ for _code in LANGUAGES:
     _sections[0] = _sections[0].rstrip() + "\n[[IMG:main]]\n"
     _rest = ["<h3>" + _s for _s in _sections[1:]]
     if _rest:  # add-connection screenshot inside the first real section
-        _rest[0] = _rest[0].rstrip() + "\n[[IMG:add]]\n"
+        _rest[0] = (_rest[0].rstrip() + "\n" + _HELP_MASTER[_code]
+                    + "\n[[IMG:add]]\n")
     if len(_rest) > 1:  # Autostart note at the end of "Starting & Stopping"
         _rest[1] = _rest[1].rstrip() + "\n" + _HELP_AUTOSTART[_code] + "\n"
     # Settings section goes between the intro and "Adding a Connection".

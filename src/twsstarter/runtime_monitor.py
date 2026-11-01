@@ -19,6 +19,11 @@ no account in its title (the running window shares the login dialog's title), so
 it is detected via its TCP port and attributed to a connection via the per-account
 settings directory under the gateway path (see process_scan).
 
+Master-account check (TWS only): after autofill submits a login, the monitor
+watches the main windows of that login's process. If none of them shows the
+connection's master account (the connection name) within a grace period, the
+wrong account was logged in and the process is terminated.
+
 This is *status monitoring only* — it never restarts processes.
 """
 from __future__ import annotations
@@ -35,6 +40,8 @@ from twsstarter.process_scan import (
     scan_running,
     gateway_listening,
     active_gateway_dir,
+    is_account_id,
+    terminate_pid,
 )
 
 if TYPE_CHECKING:
@@ -47,6 +54,12 @@ _LEARN_TIMEOUT = 150.0
 # Minimum time a freshly launched connection is shown as "starting", to bridge
 # the brief window before the login dialog appears / launcher settles.
 _START_GRACE = 25.0
+# How long after the login was submitted to wait for the TWS main window
+# (covers slow logins incl. two-factor confirmation).
+_VERIFY_TIMEOUT = 300.0
+# How long a logged-in TWS may show only foreign accounts before it is closed
+# (FA logins open several account windows; the master may appear a bit later).
+_VERIFY_GRACE = 15.0
 
 
 @dataclass
@@ -68,6 +81,8 @@ class RuntimeMonitor(QObject):
     account_learned = pyqtSignal(str, str)
     # entry.id, learned gateway account directory
     gateway_dir_learned = pyqtSignal(str, str)
+    # entry.id, result ("ok" | "mismatch" | "unverified"), accounts found
+    master_checked = pyqtSignal(str, str, str)
 
     def __init__(self, interval: float = 10.0, parent: QObject | None = None):
         super().__init__(parent)
@@ -78,6 +93,8 @@ class RuntimeMonitor(QObject):
         self._states: dict[str, str] = {}   # entry_id → "running" | "starting"
         # entry_id → (tws accounts before launch, learn_deadline, grace_until)
         self._pending: dict[str, tuple[set[str], float, float]] = {}
+        # entry_id → [login pid, deadline, first time only foreign accounts seen]
+        self._verify: dict[str, list] = {}
         self._wakeup = threading.Event()
         self._stopping = False
         self._thread: threading.Thread | None = None
@@ -113,6 +130,7 @@ class RuntimeMonitor(QObject):
         with self._lock:
             self._handles.pop(entry_id, None)
             self._pending.pop(entry_id, None)
+            self._verify.pop(entry_id, None)
         self._wakeup.set()
 
     def start_learning(self, entry_id: str) -> None:
@@ -133,6 +151,13 @@ class RuntimeMonitor(QObject):
             self._pending[entry_id] = (before, now + _LEARN_TIMEOUT, now + _START_GRACE)
         self._wakeup.set()
 
+    def expect_master(self, entry_id: str, pid: int) -> None:
+        """Verify the master account of the TWS process that owns the submitted
+        login window (called from the autofill thread)."""
+        with self._lock:
+            self._verify[entry_id] = [pid, time.monotonic() + _VERIFY_TIMEOUT, None]
+        self._wakeup.set()
+
     def is_running(self, entry_id: str) -> bool:
         with self._lock:
             return self._states.get(entry_id) == "running"
@@ -151,7 +176,11 @@ class RuntimeMonitor(QObject):
         # Immediate check on start, then every `interval` seconds.
         while not self._stopping:
             self._check_once()
-            self._wakeup.wait(self._interval)
+            with self._lock:
+                # A suspected wrong login is re-checked quickly so it is closed
+                # right after the grace period, not one full interval later.
+                suspect = any(v[2] is not None for v in self._verify.values())
+            self._wakeup.wait(min(self._interval, 2.0) if suspect else self._interval)
             self._wakeup.clear()
 
     def _check_once(self) -> None:
@@ -186,12 +215,15 @@ class RuntimeMonitor(QObject):
         # between those accounts every cycle, and each learn re-triggers a check
         # (learn → push → re-check → learn …), spamming the journal.
         # Never attribute the same account to two connections either.
+        # A connection whose name is a master account needs no learning — the
+        # master account itself identifies its TWS.
         acct_by_id = {s.id: s.account_id for s in conns}
+        has_master = {s.id for s in conns if is_account_id(s.name)}
         learned: list[tuple[str, str]] = []
         claimed_accounts: set[str] = {a for a in acct_by_id.values() if a}
         with self._lock:
             for entry_id, (before, deadline, _grace) in list(self._pending.items()):
-                if not acct_by_id.get(entry_id):
+                if entry_id not in has_master and not acct_by_id.get(entry_id):
                     fresh = (tws_accounts - before) - claimed_accounts
                     if fresh:
                         acc = sorted(fresh)[0]
@@ -199,6 +231,12 @@ class RuntimeMonitor(QObject):
                         claimed_accounts.add(acc)
                 if now_mono > deadline:
                     del self._pending[entry_id]
+
+        # ── Master-account verification ────────────────────────────────
+        checked, killed = self._verify_masters(conns, instances, now_mono)
+        if killed:
+            # The terminated TWS must not be reported as running this cycle.
+            instances = [i for i in instances if i.pid not in killed]
 
         # ── Three-state detection ──────────────────────────────────────
         states: dict[str, str] = {}
@@ -267,6 +305,8 @@ class RuntimeMonitor(QObject):
 
         if self._stopping:
             return
+        for entry_id, result, accounts in checked:
+            self.master_checked.emit(entry_id, result, accounts)
         for entry_id, account in learned:
             self.account_learned.emit(entry_id, account)
         for entry_id, gdir in gw_learned:
@@ -276,14 +316,53 @@ class RuntimeMonitor(QObject):
         for entry_id in stopped:
             self.status_changed.emit(entry_id, "stopped", "")
 
+    def _verify_masters(self, conns, instances, now_mono):
+        """Check pending master-account verifications against the window scan.
+
+        Returns (results, killed_pids); results are (entry_id, "ok" | "mismatch"
+        | "unverified", accounts seen). A mismatching TWS process is terminated.
+        """
+        masters = {s.id: s.name.strip() for s in conns}
+        results: list[tuple[str, str, str]] = []
+        killed: set[int] = set()
+        with self._lock:
+            for entry_id, item in list(self._verify.items()):
+                pid, deadline, foreign_since = item
+                master = masters.get(entry_id, "")
+                if not is_account_id(master):
+                    # Legacy free-text name: nothing to verify against.
+                    del self._verify[entry_id]
+                    continue
+                accounts = sorted({
+                    i.account for i in instances
+                    if i.kind == "tws" and i.pid == pid and i.account
+                })
+                if any(a.lower() == master.lower() for a in accounts):
+                    results.append((entry_id, "ok", ", ".join(accounts)))
+                    del self._verify[entry_id]
+                elif accounts:
+                    if foreign_since is None:
+                        item[2] = now_mono
+                    elif now_mono - foreign_since >= _VERIFY_GRACE:
+                        terminate_pid(pid)
+                        killed.add(pid)
+                        results.append((entry_id, "mismatch", ", ".join(accounts)))
+                        del self._verify[entry_id]
+                elif now_mono > deadline:
+                    # Main window never appeared in the login's process (login
+                    # aborted, or TWS re-spawned under another PID).
+                    results.append((entry_id, "unverified", ""))
+                    del self._verify[entry_id]
+        return results, killed
+
     @staticmethod
     def _match_real(name, username, account_id, instances, claimed_pids):
         """Return an unclaimed logged-in TWS main window for a connection, or None.
 
         Only real main windows count (kind != 'login'). The account id is the
-        first token of the TWS title, so account_id and name are matched with
-        startswith to avoid false positives on common words ("Interactive",
-        "Brokers", "Trading", …); username is matched as a substring. Instances
+        first token of the TWS title; account_id and name (master account) must
+        equal it exactly, so "U123" never matches "U1234" and common title words
+        ("Interactive", "Brokers", …) never match; username is matched as a substring. Instances
         whose PID is already claimed by another connection are skipped, so one
         running TWS maps to a single connection.
         """
@@ -295,7 +374,7 @@ class RuntimeMonitor(QObject):
             if not needle:
                 continue
             for inst in mains:
-                if inst.title.lower().startswith(needle.lower()):
+                if inst.account and inst.account.lower() == needle.lower():
                     return inst
         if username:
             for inst in mains:

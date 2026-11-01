@@ -1,17 +1,19 @@
-"""Add/Edit dialog for a single connection: credentials (password shown behind
-an eye toggle), trading mode, default launch target and optional paths."""
+"""Add/Edit dialog for a single connection: master account (shown as the name in
+the list and verified after a TWS login), credentials (password shown behind an
+eye toggle), trading mode, default launch target and optional paths."""
 from __future__ import annotations
 import uuid
 from typing import Optional
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLabel, QLineEdit, QPushButton, QFrame, QFileDialog,
-    QButtonGroup, QRadioButton,
+    QButtonGroup, QRadioButton, QToolTip,
 )
-from PyQt6.QtCore import QDir, Qt
+from PyQt6.QtCore import QDir, QPoint, Qt
 from twsstarter import crypto
 from twsstarter.i18n import tr
 from twsstarter.models import DEFAULT_TWS_PATH, GATEWAY_PATH_HINT, ConnectionEntry
+from twsstarter.process_scan import is_account_id
 
 _TOGGLE_CSS = """
 QRadioButton {
@@ -95,7 +97,6 @@ class ConnectionDialog(QDialog):
 
         self._user_edit = QLineEdit()
         self._user_edit.setPlaceholderText(tr('ph_username'))
-        self._user_edit.textChanged.connect(self._on_username_changed)
         form.addRow(self._lbl(tr('lbl_username')), self._user_edit)
 
         pw_row = QHBoxLayout()
@@ -253,14 +254,6 @@ class ConnectionDialog(QDialog):
 
     # ── Slots ──────────────────────────────────────────────────────
 
-    def _on_username_changed(self, text: str) -> None:
-        if not self._name_edit.text() or (
-            self._existing and self._name_edit.text() == self._existing.username
-        ):
-            self._name_edit.blockSignals(True)
-            self._name_edit.setText(text)
-            self._name_edit.blockSignals(False)
-
     def _toggle_pw(self, checked: bool) -> None:
         self._pw_edit.setEchoMode(
             QLineEdit.EchoMode.Normal if checked else QLineEdit.EchoMode.Password
@@ -273,13 +266,18 @@ class ConnectionDialog(QDialog):
             target.setText(QDir.toNativeSeparators(path))
 
     def _on_ok(self) -> None:
-        name = self._name_edit.text().strip()
+        # The name is the IB master account (account ids are upper case).
+        name = self._name_edit.text().strip().upper()
         username = self._user_edit.text().strip()
         password = self._pw_edit.text()
 
-        if not name:
+        if not is_account_id(name):
             self._name_edit.setFocus()
             self._name_edit.setStyleSheet("border-color:#ef4444;")
+            QToolTip.showText(
+                self._name_edit.mapToGlobal(QPoint(0, self._name_edit.height())),
+                tr('err_master_format'), self._name_edit,
+            )
             return
         if not username:
             self._user_edit.setFocus()
@@ -304,7 +302,12 @@ class ConnectionDialog(QDialog):
             paper_trading=paper,
             default_mode=default_mode,
             checked=self._existing.checked if self._existing else False,
-            account_id=self._existing.account_id if self._existing else None,
+            autostart=self._existing.autostart if self._existing else True,
+            # A learned account belongs to the old master; drop it on change.
+            account_id=(
+                self._existing.account_id
+                if self._existing and self._existing.name.upper() == name else None
+            ),
             gateway_account_dir=(
                 self._existing.gateway_account_dir if self._existing else None
             ),

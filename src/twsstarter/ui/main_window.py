@@ -55,6 +55,7 @@ class MainWindow(QMainWindow):
         self._monitor.status_changed.connect(self._on_status_changed)
         self._monitor.account_learned.connect(self._learn_account)
         self._monitor.gateway_dir_learned.connect(self._learn_gateway_dir)
+        self._monitor.master_checked.connect(self._on_master_checked)
 
         self.setWindowTitle(title_string())
         self.setMinimumSize(760, 640)
@@ -104,13 +105,13 @@ class MainWindow(QMainWindow):
     def _instances_for(entry: ConnectionEntry) -> list:
         """Running TWS instances attributable to a connection (for stop)."""
         out = []
-        starts = [n.lower() for n in (entry.account_id, entry.name) if n]
+        accounts = {n.lower() for n in (entry.account_id, entry.name) if n}
         user = entry.username.lower() if entry.username else ""
         for inst in scan_running():
             if inst.kind not in ("tws", "gateway"):
                 continue
-            title = inst.title.lower()
-            if any(title.startswith(n) for n in starts) or (user and user in title):
+            acct = (inst.account or "").lower()
+            if acct in accounts or (user and user in inst.title.lower()):
                 out.append(inst)
         return out
 
@@ -414,6 +415,25 @@ class MainWindow(QMainWindow):
                 tracer().info(f"'{e.name}': learned gateway account.")
                 break
 
+    def _on_master_checked(self, entry_id: str, result: str, accounts: str) -> None:
+        """Result of the post-login master-account check (TWS only)."""
+        entry = next((e for e in self.connections if e.id == entry_id), None)
+        if entry is None:
+            return
+        if result == "ok":
+            tracer().info(tr('msg_master_ok', name=entry.name))
+        elif result == "unverified":
+            tracer().warn(tr('msg_master_unverified', name=entry.name))
+        elif result == "mismatch":
+            # The monitor already closed that TWS. Switch autostart off, or the
+            # watchdog would log the wrong account in again and again.
+            entry.autostart = False
+            storage.save_connections(self.connections)
+            card = self._cards.get(entry_id)
+            if card:
+                card.refresh(entry, self.settings)
+            tracer().error(tr('msg_master_mismatch', name=entry.name, found=accounts))
+
     # ── Connection CRUD ───────────────────────────────────────────
 
     def _on_add(self) -> None:
@@ -530,7 +550,11 @@ class MainWindow(QMainWindow):
             if is_gateway:
                 handle = launcher.launch_gateway(entry, self.settings, on_autofill_done=_on_autofill)
             else:
-                handle = launcher.launch_tws(entry, self.settings, on_autofill_done=_on_autofill)
+                monitor, entry_id = self._monitor, entry.id
+                handle = launcher.launch_tws(
+                    entry, self.settings, on_autofill_done=_on_autofill,
+                    on_login_submitted=lambda pid: monitor.expect_master(entry_id, pid),
+                )
         except Exception as exc:
             if card:
                 card.set_status("stopped")

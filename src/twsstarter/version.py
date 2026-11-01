@@ -149,12 +149,20 @@ History:
   1.12 Build 1 — Linux package gains a setup: the .tar.gz now holds a folder
                 with the binary, the app icon and install.sh (per-user install
                 with application-menu entry; --uninstall removes it).
+  1.13 Build 0 — The connection name is now the IB master account (required,
+                shown in the list). After a TWS login the account in the title
+                bar of that login's process is checked against it; if it does not
+                match within a grace period the TWS is closed and autostart is
+                switched off, so the wrong account never stays logged in (TWS
+                only — the Gateway shows no account). Account matching is now
+                exact (U123 no longer matches U1234). Editing a connection no
+                longer resets its autostart switch. Help updated (10 languages).
 """
 from __future__ import annotations
 
 APP_NAME: str = "TWSStarter"
-VERSION: str = "1.12"  # X.Y — feature version
-BUILD: int = 1        # Z   — build number
+VERSION: str = "1.13"  # X.Y — feature version
+BUILD: int = 0        # Z   — build number
 
 
 def version_string() -> str:

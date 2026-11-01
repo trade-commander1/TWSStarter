@@ -26,6 +26,7 @@ if _WIN32:
     import win32clipboard
     import win32con
     import win32gui
+    import win32process
 
     pyautogui.FAILSAFE = True
     pyautogui.PAUSE = 0.04
@@ -386,12 +387,15 @@ def fill_login(
     timeout: int = 90,
     on_done: Optional[Callable[[bool, str], None]] = None,
     pid: Optional[int] = None,
+    on_submitted: Optional[Callable[[int], None]] = None,
 ) -> None:
     """Wait for the login window and fill credentials. Runs in a daemon thread.
 
     `is_gateway` is passed by the caller (it knows whether TWS or Gateway was
     launched), so detection does not depend on the localized window title.
     `pid` (Linux) restricts detection to the windows of the launched process.
+    `on_submitted` receives the PID of the filled login window, so the caller
+    can verify which account that process logs into.
     """
     if not _WIN32:
         if is_gateway or not x11input.available():
@@ -437,8 +441,12 @@ def fill_login(
                     continue
                 _claimed_hwnds.add(hwnd)
                 _fill_window(hwnd, title, username, password, paper_trading, is_gateway)
+                login_pid = win32process.GetWindowThreadProcessId(hwnd)[1]
                 time.sleep(_SUBMIT_GRACE)
             break
+
+        if on_submitted:
+            on_submitted(login_pid)
 
         if on_done:
             on_done(True, f"Credentials submitted ({title}).")
@@ -458,11 +466,13 @@ def start_thread(
     timeout: int = 90,
     on_done: Optional[Callable[[bool, str], None]] = None,
     pid: Optional[int] = None,
+    on_submitted: Optional[Callable[[int], None]] = None,
 ) -> threading.Thread:
     """Start autofill in a background daemon thread and return it."""
     t = threading.Thread(
         target=fill_login,
-        args=(username, password, paper_trading, is_gateway, timeout, on_done, pid),
+        args=(username, password, paper_trading, is_gateway, timeout, on_done, pid,
+              on_submitted),
         daemon=True,
         name="TWSAutofill",
     )

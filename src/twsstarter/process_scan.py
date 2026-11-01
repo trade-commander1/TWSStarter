@@ -99,6 +99,17 @@ def scan_running() -> list[RunningInstance]:
     return out
 
 
+_ACCOUNT_RE = re.compile(r"^[A-Za-z0-9]+$")
+
+
+def is_account_id(text: str) -> bool:
+    """True if `text` looks like an IB account id (one alphanumeric token with
+    at least one digit, e.g. U1234567 / DU1234567) — i.e. a master account that
+    a TWS login can be verified against."""
+    t = (text or "").strip()
+    return bool(_ACCOUNT_RE.match(t)) and any(c.isdigit() for c in t)
+
+
 def instance_matches(username: str, inst: RunningInstance) -> bool:
     """True if a running instance can be attributed to the given username."""
     if not username:

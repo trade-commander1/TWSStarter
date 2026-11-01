@@ -19,6 +19,10 @@ else:
 
 @dataclass
 class ConnectionEntry:
+    # IB master account id (e.g. "U1234567"): shown as the connection's name and
+    # verified against the TWS title after login (wrong account → TWS closed).
+    # Entries from before v1.13 may still hold a free-text label; those are not
+    # verified until the master account is entered.
     name: str
     username: str
     password_enc: str
