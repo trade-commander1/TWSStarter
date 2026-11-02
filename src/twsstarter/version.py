@@ -157,12 +157,14 @@ History:
                 only — the Gateway shows no account). Account matching is now
                 exact (U123 no longer matches U1234). Editing a connection no
                 longer resets its autostart switch. Help updated (10 languages).
+  1.13 Build 1 — Help screenshot of the add-connection dialog regenerated (shows
+                the new "Master account" field).
 """
 from __future__ import annotations
 
 APP_NAME: str = "TWSStarter"
 VERSION: str = "1.13"  # X.Y — feature version
-BUILD: int = 0        # Z   — build number
+BUILD: int = 1        # Z   — build number
 
 
 def version_string() -> str:
